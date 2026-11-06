@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Undangan & Rekapitulasi Pemilihan Ketua RW 025</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QRCode.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- html2pdf.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- SheetJS / XLSX CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #undangan-card-printable, #undangan-card-printable * { visibility: visible; }
+            #undangan-card-printable { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans flex flex-col justify-between">
+
+    <!-- HEADER / NAVIGATION -->
+    <header class="bg-blue-900 text-white shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-400 p-2 rounded-lg text-blue-900 font-bold">
+                    <i class="fa-solid me-1 fa-vote-yea text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">Panitia Pemilihan Ketua RW 025</h1>
+                    <p class="text-xs text-blue-200">Sistem Undangan & Rekapitulasi Digital DPT Warga</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <div class="hidden sm:flex items-center bg-blue-800/80 px-3 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-blue-700">
+                    <i class="fa-regular fa-calendar-check mr-2"></i> Pelaksanaan: Sabtu, 7 November 2026
+                </div>
+                
+                <!-- Toggle Login Admin / Status Mode -->
+                <div id="admin-nav-area">
+                    <button onclick="bukaModalLoginAdmin()" id="btn-login-admin" class="bg-amber-400 hover:bg-amber-500 text-blue-950 px-3.5 py-2 rounded-lg font-bold text-xs flex items-center transition shadow cursor-pointer">
+                        <i class="fa-solid fa-user-shield mr-1.5"></i> Login Admin
+                    </button>
+                    <div id="badge-admin-logged" class="hidden flex items-center space-x-2">
+                        <span class="bg-emerald-500 text-white px-2.5 py-1 rounded-md text-xs font-bold flex items-center">
+                            <i class="fa-solid fa-user-check mr-1"></i> Mode Admin
+                        </span>
+                        <button onclick="bukaModalAdminData()" class="bg-amber-400 hover:bg-amber-500 text-blue-950 px-3 py-1.5 rounded-md font-bold text-xs shadow cursor-pointer flex items-center space-x-1">
+                            <i class="fa-solid fa-file-excel text-emerald-800"></i>
+                            <span>Import / Update DPT</span>
+                        </button>
+                        <button onclick="logoutAdmin()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-md font-bold text-xs shadow cursor-pointer" title="Keluar Mode Admin">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="max-w-6xl mx-auto px-4 py-8 w-full flex-grow space-y-8">
+        
+        <!-- STATUS KONEKSI DATA -->
+        <div id="status-loading-data" class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i id="icon-status" class="fa-solid fa-circle-notch fa-spin text-blue-600"></i>
+                <span id="text-status-loading">Memuat data DPT...</span>
+            </div>
+            <button onclick="initLoadData()" class="text-blue-700 underline font-bold hover:text-blue-900 text-[11px]">Muat Ulang</button>
+        </div>
+
+        <!-- DASHBOARD REKAPITULASI SUARA ADMIN (HANYA MUNCUL DI MODE ADMIN) -->
+        <section id="section-admin-rekap" class="hidden space-y-6 bg-slate-900 text-white p-6 rounded-2xl shadow-2xl border border-slate-800">
+            <div class="flex flex-col md:flex-row justify-between md:items-center gap-2 border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column"></i>
+                        <span>Dashboard Rekapitulasi Suara & Kehadiran TPS</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Penghitungan realtime partisipasi warga dan hasil pemungutan suara RW 025</p>
+                </div>
+                <span class="bg-blue-600/30 border border-blue-500 text-blue-300 text-[11px] font-bold px-3 py-1 rounded-full self-start md:self-auto">
+                    Panel Khusus Panitia
+                </span>
+            </div>
+
+            <!-- STAT CARDS -->
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-xl">
+                    <span class="text-slate-400 text-xs font-semibold uppercase block">Total DPT Terdaftar</span>
+                    <div id="stat-total-dpt" class="text-2xl font-black text-white mt-1">0</div>
+                    <span class="text-[10px] text-slate-500">Warga terdata di DPT</span>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-xl">
+                    <span class="text-slate-400 text-xs font-semibold uppercase block">Total DPT Tambahan</span>
+                    <div id="stat-total-dptb" class="text-2xl font-black text-amber-400 mt-1">0</div>
+                    <span class="text-[10px] text-slate-500">Warga terdaftar DPTb</span>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-xl">
+                    <span class="text-slate-400 text-xs font-semibold uppercase block">Total Pemilih Hadir</span>
+                    <div id="stat-total-hadir" class="text-2xl font-black text-emerald-400 mt-1">0</div>
+                    <span id="stat-detail-hadir" class="text-[10px] text-slate-400">DPT: 0 | DPTb: 0</span>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-xl">
+                    <span class="text-slate-400 text-xs font-semibold uppercase block">Tingkat Partisipasi</span>
+                    <div id="stat-rasio-partisipasi" class="text-2xl font-black text-blue-400 mt-1">0%</div>
+                    <span class="text-[10px] text-slate-400">Rasio total pemilih</span>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-xl col-span-2 lg:col-span-1">
+                    <span class="text-slate-400 text-xs font-semibold uppercase block">Total Suara Masuk</span>
+                    <div id="stat-total-suara" class="text-2xl font-black text-purple-400 mt-1">0</div>
+                    <span id="stat-detail-suara" class="text-[10px] text-slate-400">Sah: 0 | Tidak Sah: 0</span>
+                </div>
+            </div>
+
+            <!-- TABEL BREAKDOWN PARTISIPASI PER RT & FORM INPUT KEHADIRAN -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- FORM INPUT KEHADIRAN & DPTb -->
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+                    <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                        <i class="fa-solid fa-user-check text-emerald-400"></i>
+                        <span>Input Kehadiran Pemilih (TPS)</span>
+                    </h3>
+
+                    <!-- Cek DPT/Hadir -->
+                    <div class="space-y-2">
+                        <label class="block text-xs font-semibold text-slate-300">Cari Warga (Nama / ID DPT / Blok):</label>
+                        <input type="text" id="input-search-presensi" onkeyup="filterPresensiWarga()" placeholder="Ketik nama atau blok..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <div id="list-presensi-warga" class="max-h-36 overflow-y-auto space-y-1 bg-slate-900/50 p-2 rounded-lg border border-slate-700 text-xs">
+                            <p class="text-slate-500 italic text-center py-2">Memuat daftar warga...</p>
+                        </div>
+                    </div>
+
+                    <!-- Input DPT Tambahan (DPTb) -->
+                    <div class="border-t border-slate-700 pt-3 space-y-3">
+                        <span class="text-xs font-bold text-amber-300 block">Form DPT Tambahan (Warga Belum Masuk DPT):</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="dptb-nama" placeholder="Nama Warga" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none">
+                            <input type="text" id="dptb-blok" placeholder="Contoh: A No. 12" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <select id="dptb-rt" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none">
+                                <option value="RT 1">RT 1</option>
+                                <option value="RT 2">RT 2</option>
+                                <option value="RT 3">RT 3</option>
+                                <option value="RT 4">RT 4</option>
+                                <option value="RT 5">RT 5</option>
+                                <option value="RT 6">RT 6</option>
+                                <option value="RT 7">RT 7</option>
+                                <option value="RT 8">RT 8</option>
+                                <option value="RT 9">RT 9</option>
+                            </select>
+                            <button onclick="tambahDPTb()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg text-xs cursor-pointer flex items-center justify-center space-x-1">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>Tambah DPTb</span>
+                            </button>
+                        </div>
+
+                        <!-- LIST DPTb TERCATAT (DENGAN EDIT & HAPUS) -->
+                        <div class="mt-3 space-y-1.5 border-t border-slate-700/60 pt-2">
+                            <span class="text-[11px] font-semibold text-slate-400 block">Daftar DPTb Tercatat:</span>
+                            <div id="list-dptb-tercatat" class="max-h-36 overflow-y-auto space-y-1.5 bg-slate-900/50 p-2 rounded-lg border border-slate-700 text-xs">
+                                <p class="text-slate-500 italic text-center py-1">Belum ada data DPTb tambahan.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABEL BREAKDOWN PER RT -->
+                <div class="lg:col-span-2 bg-slate-800 p-5 rounded-xl border border-slate-700 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-sm text-white flex items-center gap-2 mb-3">
+                            <i class="fa-solid fa-chart-pie text-amber-400"></i>
+                            <span>Rasio Partisipasi Warga Per RT</span>
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left text-slate-300">
+                                <thead class="bg-slate-900 text-slate-400 uppercase font-mono text-[10px]">
+                                    <tr>
+                                        <th class="py-2 px-3">Wilayah RT</th>
+                                        <th class="py-2 px-3 text-center">Total DPT</th>
+                                        <th class="py-2 px-3 text-center">DPTb (Tambahan)</th>
+                                        <th class="py-2 px-3 text-center">Pemilih Hadir</th>
+                                        <th class="py-2 px-3 text-right">Partisipasi (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-breakdown-rt" class="divide-y divide-slate-700/50">
+                                    <!-- Dynamic RT Breakdown Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PERHITUNGAN SUARA KANDIDAT -->
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                    <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                        <i class="fa-solid fa-box-archive text-blue-400"></i>
+                        <span>Input & Perhitungan Hasil Suara Kandidat</span>
+                    </h3>
+                    <button onclick="simpanPerhitunganSuara()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Simpan Perolehan Suara</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="container-kandidat-input">
+                    <!-- Form Input Paslon 1 -->
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 relative">
+                        <span class="bg-blue-600 text-white font-bold text-[10px] px-2 py-0.5 rounded uppercase mb-2 inline-block">Kandidat 01</span>
+                        <h4 class="font-bold text-sm text-white">01. Nurachmad Rusdam</h4>
+                        <div class="mt-3 space-y-1">
+                            <label class="text-[11px] text-slate-400 font-medium">Perolehan Suara Sah:</label>
+                            <input type="number" id="suara-kandidat-1" value="0" min="0" oninput="hitungTotalSuara()" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-base font-extrabold text-amber-400 focus:outline-none">
+                        </div>
+                        <div class="mt-2 text-right">
+                            <span id="persen-kandidat-1" class="text-xs font-bold text-slate-400">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Form Input Paslon 2 -->
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 relative">
+                        <span class="bg-blue-600 text-white font-bold text-[10px] px-2 py-0.5 rounded uppercase mb-2 inline-block">Kandidat 02</span>
+                        <h4 class="font-bold text-sm text-white">02. Oudie Azwir</h4>
+                        <div class="mt-3 space-y-1">
+                            <label class="text-[11px] text-slate-400 font-medium">Perolehan Suara Sah:</label>
+                            <input type="number" id="suara-kandidat-2" value="0" min="0" oninput="hitungTotalSuara()" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-base font-extrabold text-amber-400 focus:outline-none">
+                        </div>
+                        <div class="mt-2 text-right">
+                            <span id="persen-kandidat-2" class="text-xs font-bold text-slate-400">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Input Suara Tidak Sah -->
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 relative">
+                        <span class="bg-rose-600 text-white font-bold text-[10px] px-2 py-0.5 rounded uppercase mb-2 inline-block">Suara Rusak / Invalid</span>
+                        <h4 class="font-bold text-sm text-white">Suara Tidak Sah</h4>
+                        <div class="mt-3 space-y-1">
+                            <label class="text-[11px] text-slate-400 font-medium">Jumlah Suara Tidak Sah:</label>
+                            <input type="number" id="suara-tidak-sah" value="0" min="0" oninput="hitungTotalSuara()" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-base font-extrabold text-rose-400 focus:outline-none">
+                        </div>
+                        <div class="mt-2 text-right">
+                            <span id="persen-tidak-sah" class="text-xs font-bold text-slate-400">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PENCARIAN DPT (UNTUK WARGA / USER) -->
+        <section class="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 md:p-8">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-extrabold text-blue-950">Cari Undangan Pemilihan Anda</h2>
+                <p class="text-slate-500 text-sm mt-1">Masukkan Blok dan Nomor Rumah untuk mengecek kelayakan (eligibility) dan mengunduh Surat Undangan Pencoblosan resmi.</p>
+            </div>
+
+            <form id="form-pencarian" class="space-y-4 max-w-2xl mx-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Pilih Blok</label>
+                        <select id="select-blok" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                            <option value="">-- Pilih Blok --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nomor Rumah</label>
+                        <input type="text" id="input-norumah" placeholder="Contoh: 12 atau 05" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                    </div>
+                </div>
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-blue-200 transition duration-150 flex items-center justify-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>Cari & Cek DPT</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- HASIL PENCARIAN & KELAYAKAN PEMILIH -->
+        <section id="section-hasil" class="hidden transition-all duration-300">
+            <div id="hasil-not-found" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-6 text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-rose-100 rounded-full text-rose-600 mb-3">
+                    <i class="fa-solid fa-user-xmark text-xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-rose-950">Data Rumah Tidak Ditemukan</h3>
+                <p class="text-xs text-rose-700 mt-1 max-w-md mx-auto">Kombinasi Blok & Nomor Rumah yang Anda masukkan belum terdaftar dalam DPT RW 025.</p>
+            </div>
+
+            <div id="hasil-found" class="hidden space-y-6">
+                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-emerald-500 rounded-full text-white flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-house-circle-check"></i>
+                        </div>
+                        <div>
+                            <span class="bg-emerald-200 text-emerald-950 font-bold text-[10px] uppercase px-2 py-0.5 rounded">Eligible / Terdaftar</span>
+                            <h3 id="display-alamat-kk" class="text-lg font-bold text-slate-900 mt-0.5">Blok A No. 12</h3>
+                            <p id="display-kepala-keluarga" class="text-xs text-slate-600">Kepala Keluarga: Budi Santoso</p>
+                        </div>
+                    </div>
+                    <div class="text-right text-xs text-slate-600 border-t md:border-t-0 pt-2 md:pt-0 border-emerald-200 w-full md:w-auto">
+                        <div>Wilayah: <strong id="display-rt-rw">RT 001 / RW 025</strong></div>
+                        <div>Lokasi: <strong id="display-tps-info">TPS 01 - Area Kantin Kolam Renang RW 025</strong></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pilih Nama Pemilih untuk Mendownload Undangan:</h4>
+                    <div id="list-anggota-pemilih" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                </div>
+
+                <div id="wrapper-kartu-undangan" class="hidden">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-sm font-bold text-slate-700">Pratinjau Surat Undangan Pencoblosan:</h4>
+                        <button onclick="downloadPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow flex items-center space-x-1.5 transition cursor-pointer">
+                            <i class="fa-solid fa-file-pdf text-sm"></i>
+                            <span>Download Undangan (PDF)</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto pb-4">
+                        <div id="undangan-card-printable" class="bg-white border-2 border-slate-800 p-6 rounded-none w-[650px] mx-auto text-slate-900 relative shadow-2xl">
+                            <div class="border-b-4 border-double border-slate-800 pb-3 mb-4 text-center">
+                                <h2 class="text-base font-black tracking-widest uppercase">PANITIA PEMILIHAN KETUA RW 025</h2>
+                                <p class="text-[10px] font-semibold text-slate-600">Kelurahan Pekayon Jaya, Kecamatan Bekasi Selatan, Kota Bekasi</p>
+                                <p class="text-[9px] text-slate-500 italic mt-0.5">Surat Pemberitahuan Pemungutan Suara Kepada Pemilih (DPT)</p>
+                            </div>
+
+                            <div class="text-center font-bold text-xs bg-slate-100 py-1 border border-slate-300 mb-4 tracking-wide uppercase">
+                                SURAT UNDANGAN PENCOBLOSAN DIGITALLY VERIFIED
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-4 mb-4">
+                                <div class="col-span-2 text-xs space-y-1.5">
+                                    <div class="grid grid-cols-3">
+                                        <span class="text-slate-500 font-medium">No. DPT / ID:</span>
+                                        <span id="pdf-id-dpt" class="col-span-2 font-bold font-mono">DPT-025-001</span>
+                                    </div>
+                                    <div class="grid grid-cols-3">
+                                        <span class="text-slate-500 font-medium">Nama Pemilih:</span>
+                                        <span id="pdf-nama-pemilih" class="col-span-2 font-bold text-sm text-blue-950">BUDI SANTOSO</span>
+                                    </div>
+                                    <div class="grid grid-cols-3">
+                                        <span class="text-slate-500 font-medium">Alamat Rumah:</span>
+                                        <span id="pdf-alamat" class="col-span-2 font-semibold font-sans">Blok A No. 12 (RT 001)</span>
+                                    </div>
+                                    <div class="grid grid-cols-3">
+                                        <span class="text-slate-500 font-medium">Hari / Tanggal:</span>
+                                        <span class="col-span-2 font-bold text-amber-700">Sabtu, 7 November 2026</span>
+                                    </div>
+                                    <div class="grid grid-cols-3">
+                                        <span class="text-slate-500 font-medium">Waktu / Jam:</span>
+                                        <span id="pdf-waktu" class="col-span-2 font-semibold">08:00 - 11:00 WIB</span>
+                                    </div>
+                                    <div class="grid grid-cols-3">
+                                        <span class="text-slate-500 font-medium">Lokasi TPS:</span>
+                                        <span id="pdf-tps" class="col-span-2 font-semibold">TPS 01 - Area Kantin Kolam Renang RW 025</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-center justify-center border border-slate-300 rounded p-2 bg-slate-50">
+                                    <div id="qrcode" class="mb-1"></div>
+                                    <span class="text-[8px] font-mono text-slate-500 text-center">Scan Verifikasi Panitia TPS</span>
+                                </div>
+                            </div>
+
+                            <div class="border-t border-slate-300 pt-3 flex justify-between items-end text-[9px]">
+                                <div class="max-w-[320px] text-slate-600">
+                                    <strong class="text-slate-800">Catatan Panitia:</strong>
+                                    <ul class="list-disc pl-3 space-y-0.5 mt-0.5">
+                                        <li>Bawa Surat Undangan ini (Cetak/PDF di HP) beserta KTP asli ke TPS.</li>
+                                        <li>Tunjukkan QR Code di atas kepada petugas pendaftaran TPS.</li>
+                                    </ul>
+                                </div>
+                                <div class="text-center">
+                                    <p>Panitia Pemilihan RW 025</p>
+                                    <div class="h-8 my-0.5 flex items-center justify-center italic text-slate-400 text-[8px]">[ TTD Digital Panitia ]</div>
+                                    <p class="font-bold border-t border-slate-400 pt-0.5">Ketua Panitia TPS</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-6 mt-12 border-t border-slate-800">
+        <div class="max-w-6xl mx-auto px-4 text-center space-y-2">
+            <p>&copy; 2026 Panitia Pemilihan Ketua RW 025. Seluruh Hak Cipta Dilindungi.</p>
+            <p class="text-slate-500 text-[11px]">Sistem Rekapitulasi & Undangan Digital Otomatis Pemilihan RW.</p>
+        </div>
+    </footer>
+
+    <!-- MODAL EDIT DPTb -->
+    <div id="modal-edit-dptb" class="fixed inset-0 bg-slate-900/70 z-50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-6 text-white border border-slate-700">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-4">
+                <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>Edit Data DPTb</span>
+                </h3>
+                <button onclick="tutupModalEditDPTb()" class="text-slate-400 hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="simpanEditDPTb(event)" class="space-y-4">
+                <input type="hidden" id="edit-dptb-id">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Nama Warga:</label>
+                    <input type="text" id="edit-dptb-nama" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Blok & Nomor Rumah:</label>
+                    <input type="text" id="edit-dptb-blok" required placeholder="Contoh: A No. 12" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Wilayah RT:</label>
+                    <select id="edit-dptb-rt" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="RT 1">RT 1</option>
+                        <option value="RT 2">RT 2</option>
+                        <option value="RT 3">RT 3</option>
+                        <option value="RT 4">RT 4</option>
+                        <option value="RT 5">RT 5</option>
+                        <option value="RT 6">RT 6</option>
+                        <option value="RT 7">RT 7</option>
+                        <option value="RT 8">RT 8</option>
+                        <option value="RT 9">RT 9</option>
+                    </select>
+                </div>
+
+                <div class="flex space-x-2 pt-2">
+                    <button type="button" onclick="tutupModalEditDPTb()" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-xs cursor-pointer">Batal</button>
+                    <button type="submit" class="w-1/2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 rounded-lg text-xs shadow cursor-pointer">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL LOGIN ADMIN -->
+    <div id="modal-login-admin" class="fixed inset-0 bg-slate-900/70 z-50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-slate-800">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-blue-100 rounded-full text-blue-900 flex items-center justify-center mx-auto mb-2 text-xl">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">Login Panitia / Admin</h3>
+                <p class="text-xs text-slate-500">Masukkan PIN Admin untuk mengelola data DPT & Rekapitulasi.</p>
+            </div>
+            
+            <form onsubmit="prosesLoginAdmin(event)" class="space-y-4">
+                <div>
+                    <input type="password" id="input-pin-admin" placeholder="Masukkan PIN" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-center text-lg font-bold tracking-widest text-slate-900 focus:ring-2 focus:ring-blue-600 focus:outline-none" required>
+                    <p id="error-pin" class="text-xs text-rose-600 font-bold mt-1 hidden text-center">PIN Salah! Silakan coba lagi.</p>
+                </div>
+                
+                <div class="flex space-x-2">
+                    <button type="button" onclick="tutupModalLoginAdmin()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded-lg text-xs cursor-pointer">Batal</button>
+                    <button type="submit" class="w-1/2 bg-blue-900 hover:bg-blue-950 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer">Masuk Admin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PENGATURAN UPLOAD / IMPORT DPT -->
+    <div id="modal-admin-dpt" class="fixed inset-0 bg-slate-900/60 z-50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-base flex items-center space-x-2 text-blue-950">
+                    <i class="fa-solid fa-database text-amber-500"></i>
+                    <span>Kelola & Import Data DPT</span>
+                </h3>
+                <button onclick="tutupModalAdminData()" class="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="flex border-b text-xs font-bold border-slate-200">
+                <button id="tab-btn-gsheet" onclick="switchTabSource('gsheet')" class="py-2 px-4 border-b-2 border-blue-600 text-blue-600 focus:outline-none flex items-center space-x-1.5">
+                    <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                    <span>Google Sheets (Link URL)</span>
+                </button>
+                <button id="tab-btn-file" onclick="switchTabSource('file')" class="py-2 px-4 text-slate-500 hover:text-slate-800 focus:outline-none flex items-center space-x-1.5">
+                    <i class="fa-solid fa-file-arrow-up"></i>
+                    <span>Upload File (Excel/CSV/JSON)</span>
+                </button>
+            </div>
+
+            <div id="tab-content-gsheet" class="space-y-3 text-xs text-slate-600">
+                <p>Masukkan tautan **Google Sheets** (Publish to web format CSV/Excel) atau Link Spreadsheet publik:</p>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">URL Google Sheets (CSV/Publik):</label>
+                    <input type="url" id="input-gsheet-url" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-blue-600 focus:outline-none font-mono">
+                </div>
+            </div>
+
+            <div id="tab-content-file" class="hidden space-y-3 text-xs text-slate-600">
+                <p>Pilih file **Excel (.xlsx, .xls)**, **CSV**, atau **JSON** data DPT warga:</p>
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center bg-slate-50">
+                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-600 mb-2"></i>
+                    <label class="block font-bold text-slate-700 mb-1 cursor-pointer">Pilih File DPT (Excel / CSV / JSON)</label>
+                    <input type="file" id="input-dpt-file" accept=".xlsx, .xls, .csv, .json" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                </div>
+            </div>
+
+            <div class="border-t pt-4 flex justify-end space-x-2">
+                <button onclick="tutupModalAdminData()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-xs cursor-pointer">Batal</button>
+                <button onclick="prosesImportData()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-blue-950 font-bold rounded-lg text-xs shadow cursor-pointer flex items-center space-x-1">
+                    <i class="fa-solid fa-sync"></i>
+                    <span>Proses & Simpan Data</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        let databaseDPT = [];
+        let dataKehadiranDPT = JSON.parse(localStorage.getItem("rw25_kehadiran_dpt") || "[]");
+        let dataDPTb = JSON.parse(localStorage.getItem("rw25_dptb") || "[]");
+        let perolehanSuara = JSON.parse(localStorage.getItem("rw25_suara") || '{"k1":0,"k2":0,"invalid":0}');
+        
+        let selectedHouseData = null;
+        let isAdminLoggedIn = false;
+        let activeTab = 'gsheet';
+
+        document.addEventListener("DOMContentLoaded", () => {
+            checkAdminSession();
+            initLoadData();
+
+            document.getElementById("form-pencarian").addEventListener("submit", function(e) {
+                e.preventDefault();
+                lakukanPencarian();
+            });
+        });
+
+        function switchTabSource(tab) {
+            activeTab = tab;
+            const tabGsheet = document.getElementById("tab-btn-gsheet");
+            const tabFile = document.getElementById("tab-btn-file");
+            const contentGsheet = document.getElementById("tab-content-gsheet");
+            const contentFile = document.getElementById("tab-content-file");
+
+            if (tab === 'gsheet') {
+                tabGsheet.className = "py-2 px-4 border-b-2 border-blue-600 text-blue-600 focus:outline-none flex items-center space-x-1.5 font-bold";
+                tabFile.className = "py-2 px-4 text-slate-500 hover:text-slate-800 focus:outline-none flex items-center space-x-1.5 font-bold";
+                contentGsheet.classList.remove("hidden");
+                contentFile.classList.add("hidden");
+            } else {
+                tabFile.className = "py-2 px-4 border-b-2 border-blue-600 text-blue-600 focus:outline-none flex items-center space-x-1.5 font-bold";
+                tabGsheet.className = "py-2 px-4 text-slate-500 hover:text-slate-800 focus:outline-none flex items-center space-x-1.5 font-bold";
+                contentFile.classList.remove("hidden");
+                contentGsheet.classList.add("hidden");
+            }
+        }
+
+        function updateStatusUI(type, message) {
+            const loadingText = document.getElementById("text-status-loading");
+            const loadingBox = document.getElementById("status-loading-data");
+            const iconStatus = document.getElementById("icon-status");
+
+            loadingText.innerHTML = message;
+
+            if (type === 'loading') {
+                loadingBox.className = "bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 flex items-center justify-between mb-4";
+                iconStatus.className = "fa-solid fa-circle-notch fa-spin text-blue-600";
+            } else if (type === 'success') {
+                loadingBox.className = "bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-center justify-between mb-4";
+                iconStatus.className = "fa-solid fa-circle-check text-emerald-600";
+            } else if (type === 'warning') {
+                loadingBox.className = "bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-center justify-between mb-4";
+                iconStatus.className = "fa-solid fa-triangle-exclamation text-amber-600";
+            } else if (type === 'error') {
+                loadingBox.className = "bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 flex items-center justify-between mb-4";
+                iconStatus.className = "fa-solid fa-circle-xmark text-rose-600";
+            }
+        }
+
+        function initLoadData() {
+            updateStatusUI('loading', "Memuat data DPT...");
+
+            const savedGsheetUrl = localStorage.getItem("rw25_gsheet_url");
+            if (savedGsheetUrl) {
+                document.getElementById("input-gsheet-url").value = savedGsheetUrl;
+                fetchGoogleSheetsData(savedGsheetUrl);
+                return;
+            }
+
+            const savedData = localStorage.getItem("rw25_dpt_data");
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    prosesDataDPT(parsed);
+                    updateStatusUI('success', "<strong>Terhubung:</strong> Berhasil memuat data DPT lokal!");
+                    return;
+                } catch (e) {
+                    console.error("Gagal membaca memori lokal DPT", e);
+                }
+            }
+
+            fetch('dpt.json')
+                .then(response => {
+                    if (!response.ok) throw new Error("File dpt.json tidak ditemukan.");
+                    return response.json();
+                })
+                .then(data => {
+                    prosesDataDPT(data);
+                    updateStatusUI('success', "<strong>Terhubung:</strong> Berhasil memuat data dpt.json!");
+                })
+                .catch(err => {
+                    updateStatusUI('warning', "<strong>Belum Ada Data:</strong> Silakan login admin & import data DPT.");
+                });
+        }
+
+        function fetchGoogleSheetsData(url) {
+            updateStatusUI('loading', "Mengunduh data DPT dari Google Sheets...");
+            let csvUrl = url;
+            if (url.includes("/edit")) {
+                csvUrl = url.replace(/\/edit.*$/, '/export?format=csv');
+            }
+
+            fetch(csvUrl)
+                .then(response => {
+                    if (!response.ok) throw new Error("Gagal mengambil data dari Google Sheets.");
+                    return response.arrayBuffer();
+                })
+                .then(buffer => {
+                    const workbook = XLSX.read(buffer, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    prosesDataDPT(jsonData);
+                    localStorage.setItem("rw25_gsheet_url", url);
+                    localStorage.setItem("rw25_dpt_data", JSON.stringify(jsonData));
+                    updateStatusUI('success', "<strong>Terhubung Google Sheets:</strong> Data DPT disinkronkan!");
+                })
+                .catch(err => {
+                    updateStatusUI('error', "Gagal memuat Google Sheets! Pastikan disetel 'Public'.");
+                });
+        }
+
+        function prosesDataDPT(jsonData) {
+            const groupedHouse = {};
+
+            if (!Array.isArray(jsonData)) {
+                updateStatusUI('error', "Format data DPT tidak valid!");
+                return;
+            }
+
+            jsonData.forEach((row) => {
+                const keys = Object.keys(row);
+                const findVal = (keywords) => {
+                    const k = keys.find(key => keywords.some(kw => key.toLowerCase().includes(kw)));
+                    return k && row[k] !== undefined && row[k] !== null ? String(row[k]).trim() : '';
+                };
+
+                const nama = findVal(['nama']);
+                const blok = findVal(['blok']);
+                const noRumah = findVal(['no', 'rumah', 'nomor']);
+                const rtVal = findVal(['rt']);
+                const idKombinasi = findVal(['id']);
+
+                if (nama && blok && noRumah) {
+                    const houseKey = `${blok}-${noRumah}`.toUpperCase();
+                    const formatRT = rtVal ? (rtVal.toLowerCase().includes('rt') ? rtVal : `RT ${rtVal}`) : "RT 001";
+
+                    if (!groupedHouse[houseKey]) {
+                        groupedHouse[houseKey] = {
+                            idKK: idKombinasi || houseKey,
+                            blok: blok.toUpperCase(),
+                            noRumah: noRumah,
+                            rt: formatRT,
+                            tps: "TPS 01 - Area Kantin Kolam Renang RW 025",
+                            waktuTPS: "08:00 - 11:00 WIB",
+                            kepalaKeluarga: nama,
+                            anggotaPemilih: []
+                        };
+                    }
+                    groupedHouse[houseKey].anggotaPemilih.push({
+                        idDPT: `${idKombinasi || houseKey}-${groupedHouse[houseKey].anggotaPemilih.length + 1}`,
+                        nama: nama
+                    });
+                }
+            });
+
+            databaseDPT = Object.values(groupedHouse);
+            populateBlokOptions();
+            if (isAdminLoggedIn) {
+                renderDashboardRekap();
+            }
+        }
+
+        function populateBlokOptions() {
+            const selectBlok = document.getElementById("select-blok");
+            selectBlok.innerHTML = '<option value="">-- Pilih Blok --</option>';
+            const blokList = [...new Set(databaseDPT.map(item => item.blok))].sort();
+            blokList.forEach(blok => {
+                const opt = document.createElement("option");
+                opt.value = blok;
+                opt.textContent = blok;
+                selectBlok.appendChild(opt);
+            });
+        }
+
+        /* --- DASHBOARD REKAPITULASI SUARA & PRESENSI --- */
+
+        function renderDashboardRekap() {
+            let totalDPT = 0;
+            const rtStats = {};
+
+            // Hitung DPT Utama
+            databaseDPT.forEach(house => {
+                const rt = house.rt || "RT 001";
+                if (!rtStats[rt]) {
+                    rtStats[rt] = { dpt: 0, hadirDPT: 0, dptb: 0 };
+                }
+                house.anggotaPemilih.forEach(p => {
+                    totalDPT++;
+                    rtStats[rt].dpt++;
+                    if (dataKehadiranDPT.includes(p.idDPT)) {
+                        rtStats[rt].hadirDPT++;
+                    }
+                });
+            });
+
+            // Hitung DPTb
+            dataDPTb.forEach(b => {
+                const rt = b.rt || "RT 001";
+                if (!rtStats[rt]) {
+                    rtStats[rt] = { dpt: 0, hadirDPT: 0, dptb: 0 };
+                }
+                rtStats[rt].dptb++;
+            });
+
+            const totalHadirDPT = dataKehadiranDPT.length;
+            const totalDPTb = dataDPTb.length;
+            const totalPemilihHadir = totalHadirDPT + totalDPTb;
+            const totalPemilihKomplit = totalDPT + totalDPTb;
+            const rasioPartisipasi = totalPemilihKomplit > 0 ? ((totalPemilihHadir / totalPemilihKomplit) * 100).toFixed(1) : 0;
+
+            // Update UI Stat Cards
+            document.getElementById("stat-total-dpt").textContent = totalDPT;
+            document.getElementById("stat-total-dptb").textContent = totalDPTb;
+            document.getElementById("stat-total-hadir").textContent = totalPemilihHadir;
+            document.getElementById("stat-detail-hadir").textContent = `DPT: ${totalHadirDPT} | DPTb: ${totalDPTb}`;
+            document.getElementById("stat-rasio-partisipasi").textContent = `${rasioPartisipasi}%`;
+
+            // Update Input Suara
+            document.getElementById("suara-kandidat-1").value = perolehanSuara.k1 || 0;
+            document.getElementById("suara-kandidat-2").value = perolehanSuara.k2 || 0;
+            document.getElementById("suara-tidak-sah").value = perolehanSuara.invalid || 0;
+            hitungTotalSuara();
+
+            // Render Tabel Breakdown RT
+            const tbodyRT = document.getElementById("tbody-breakdown-rt");
+            tbodyRT.innerHTML = "";
+            
+            Object.keys(rtStats).sort().forEach(rt => {
+                const stat = rtStats[rt];
+                const totalRtDPTDanDPTb = stat.dpt + stat.dptb;
+                const totalHadirRt = stat.hadirDPT + stat.dptb; // Penjumlahan hadir DPT & DPTb
+                const rasioRt = totalRtDPTDanDPTb > 0 ? ((totalHadirRt / totalRtDPTDanDPTb) * 100).toFixed(1) : 0;
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-bold text-white">${rt}</td>
+                    <td class="py-2.5 px-3 text-center">${totalRtDPTDanDPTb}</td>
+                    <td class="py-2.5 px-3 text-center text-amber-400 font-bold">${stat.dptb}</td>
+                    <td class="py-2.5 px-3 text-center text-emerald-400 font-bold">${totalHadirRt}</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-blue-300">${rasioRt}%</td>
+                `;
+                tbodyRT.appendChild(tr);
+            });
+
+            // Render List DPTb Tercatat dengan Fitur Edit & Hapus
+            renderListDPTbTercatat();
+            filterPresensiWarga();
+        }
+
+        function renderListDPTbTercatat() {
+            const containerDPTb = document.getElementById("list-dptb-tercatat");
+            containerDPTb.innerHTML = "";
+            
+            if (dataDPTb.length === 0) {
+                containerDPTb.innerHTML = `<p class="text-slate-500 italic text-center py-1">Belum ada data DPTb tambahan.</p>`;
+            } else {
+                dataDPTb.forEach(b => {
+                    const div = document.createElement("div");
+                    div.className = "flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700/80 hover:border-slate-600 transition";
+                    div.innerHTML = `
+                        <div class="truncate mr-2">
+                            <span class="font-bold text-white block text-[11px] truncate">${b.nama}</span>
+                            <span class="text-[9px] text-slate-400 font-mono">Blok ${b.blok} (${b.rt})</span>
+                        </div>
+                        <div class="flex items-center space-x-1 shrink-0">
+                            <button onclick="bukaModalEditDPTb('${b.id}')" class="px-2 py-1 rounded text-[10px] font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 transition cursor-pointer" title="Edit Data">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="hapusDPTb('${b.id}')" class="px-2 py-1 rounded text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition cursor-pointer" title="Hapus Data">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    containerDPTb.appendChild(div);
+                });
+            }
+        }
+
+        function filterPresensiWarga() {
+            const query = document.getElementById("input-search-presensi").value.toLowerCase();
+            const container = document.getElementById("list-presensi-warga");
+            container.innerHTML = "";
+
+            let count = 0;
+            databaseDPT.forEach(house => {
+                house.anggotaPemilih.forEach(p => {
+                    if (p.nama.toLowerCase().includes(query) || house.blok.toLowerCase().includes(query) || p.idDPT.toLowerCase().includes(query)) {
+                        if (count < 10) {
+                            const isHadir = dataKehadiranDPT.includes(p.idDPT);
+                            const div = document.createElement("div");
+                            div.className = "flex justify-between items-center bg-slate-800 p-1.5 rounded border border-slate-700";
+                            div.innerHTML = `
+                                <div>
+                                    <span class="font-bold text-white block text-[11px]">${p.nama}</span>
+                                    <span class="text-[9px] text-slate-400">${house.blok} No. ${house.noRumah} (${house.rt})</span>
+                                </div>
+                                <button onclick="toggleKehadiranDPT('${p.idDPT}')" class="px-2 py-0.5 rounded text-[10px] font-bold ${isHadir ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
+                                    ${isHadir ? '<i class="fa-solid fa-check"></i> Hadir' : 'Tandai Hadir'}
+                                </button>
+                            `;
+                            container.appendChild(div);
+                            count++;
+                        }
+                    }
+                });
+            });
+
+            if (count === 0) {
+                container.innerHTML = `<p class="text-slate-500 italic text-center py-2">Warga tidak ditemukan.</p>`;
+            }
+        }
+
+        function toggleKehadiranDPT(idDPT) {
+            const index = dataKehadiranDPT.indexOf(idDPT);
+            if (index > -1) {
+                dataKehadiranDPT.splice(index, 1);
+            } else {
+                dataKehadiranDPT.push(idDPT);
+            }
+            localStorage.setItem("rw25_kehadiran_dpt", JSON.stringify(dataKehadiranDPT));
+            renderDashboardRekap();
+        }
+
+        /* --- LOGIK EDIT & HAPUS DPTb --- */
+
+        function tambahDPTb() {
+            const nama = document.getElementById("dptb-nama").value.trim();
+            const blok = document.getElementById("dptb-blok").value.trim();
+            const rt = document.getElementById("dptb-rt").value;
+
+            if (!nama || !blok) {
+                alert("Harap isi Nama Warga dan Blok/No Rumah DPT Tambahan!");
+                return;
+            }
+
+            const newDPTb = { id: `DPTB-${Date.now()}`, nama: nama, blok: blok, rt: rt };
+            dataDPTb.push(newDPTb);
+            localStorage.setItem("rw25_dptb", JSON.stringify(dataDPTb));
+
+            document.getElementById("dptb-nama").value = "";
+            document.getElementById("dptb-blok").value = "";
+            renderDashboardRekap();
+        }
+
+        function bukaModalEditDPTb(id) {
+            const target = dataDPTb.find(item => item.id === id);
+            if (!target) return;
+
+            document.getElementById("edit-dptb-id").value = target.id;
+            document.getElementById("edit-dptb-nama").value = target.nama;
+            document.getElementById("edit-dptb-blok").value = target.blok;
+            document.getElementById("edit-dptb-rt").value = target.rt;
+            document.getElementById("modal-edit-dptb").classList.remove("hidden");
+        }
+
+        function tutupModalEditDPTb() {
+            document.getElementById("modal-edit-dptb").classList.add("hidden");
+        }
+
+        function simpanEditDPTb(e) {
+            e.preventDefault();
+            const id = document.getElementById("edit-dptb-id").value;
+            const index = dataDPTb.findIndex(item => item.id === id);
+
+            if (index !== -1) {
+                dataDPTb[index].nama = document.getElementById("edit-dptb-nama").value.trim();
+                dataDPTb[index].blok = document.getElementById("edit-dptb-blok").value.trim();
+                dataDPTb[index].rt = document.getElementById("edit-dptb-rt").value;
+                
+                localStorage.setItem("rw25_dptb", JSON.stringify(dataDPTb));
+                tutupModalEditDPTb();
+                renderDashboardRekap();
+            }
+        }
+
+        function hapusDPTb(id) {
+            if (confirm("Apakah Anda yakin ingin menghapus data DPT tambahan ini?")) {
+                dataDPTb = dataDPTb.filter(item => item.id !== id);
+                localStorage.setItem("rw25_dptb", JSON.stringify(dataDPTb));
+                renderDashboardRekap();
+            }
+        }
+
+        function hitungTotalSuara() {
+            const k1 = parseInt(document.getElementById("suara-kandidat-1").value) || 0;
+            const k2 = parseInt(document.getElementById("suara-kandidat-2").value) || 0;
+            const invalid = parseInt(document.getElementById("suara-tidak-sah").value) || 0;
+
+            const total = k1 + k2 + invalid;
+            const sah = k1 + k2;
+
+            document.getElementById("stat-total-suara").textContent = total;
+            document.getElementById("stat-detail-suara").textContent = `Sah: ${sah} | Tidak Sah: ${invalid}`;
+
+            document.getElementById("persen-kandidat-1").textContent = total > 0 ? `${((k1 / total) * 100).toFixed(1)}%` : "0%";
+            document.getElementById("persen-kandidat-2").textContent = total > 0 ? `${((k2 / total) * 100).toFixed(1)}%` : "0%";
+            document.getElementById("persen-tidak-sah").textContent = total > 0 ? `${((invalid / total) * 100).toFixed(1)}%` : "0%";
+        }
+
+        function simpanPerhitunganSuara() {
+            const k1 = parseInt(document.getElementById("suara-kandidat-1").value) || 0;
+            const k2 = parseInt(document.getElementById("suara-kandidat-2").value) || 0;
+            const invalid = parseInt(document.getElementById("suara-tidak-sah").value) || 0;
+
+            perolehanSuara = { k1, k2, invalid };
+            localStorage.setItem("rw25_suara", JSON.stringify(perolehanSuara));
+            alert("Perolehan suara berhasil disimpan!");
+        }
+
+        /* --- AUTH & SYSTEM INTEGRATION --- */
+
+        function prosesImportData() {
+            if (activeTab === 'gsheet') {
+                const url = document.getElementById("input-gsheet-url").value.trim();
+                if (!url) {
+                    alert("Silakan masukkan URL Google Sheets!");
+                    return;
+                }
+                fetchGoogleSheetsData(url);
+                tutupModalAdminData();
+            } else {
+                const fileInput = document.getElementById("input-dpt-file");
+                const file = fileInput.files[0];
+
+                if (!file) {
+                    alert("Silakan pilih file Excel, CSV, atau JSON terlebih dahulu!");
+                    return;
+                }
+
+                const fileName = file.name.toLowerCase();
+
+                if (fileName.endsWith('.json')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const parsedData = JSON.parse(e.target.result);
+                            localStorage.removeItem("rw25_gsheet_url");
+                            localStorage.setItem("rw25_dpt_data", JSON.stringify(parsedData));
+                            prosesDataDPT(parsedData);
+                            updateStatusUI('success', "<strong>Berhasil:</strong> File JSON DPT disimpan!");
+                            tutupModalAdminData();
+                        } catch (err) {
+                            alert("Format JSON tidak valid!");
+                        }
+                    };
+                    reader.readAsText(file);
+                } else {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheetName = workbook.SheetNames[0];
+                            const parsedData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+
+                            localStorage.removeItem("rw25_gsheet_url");
+                            localStorage.setItem("rw25_dpt_data", JSON.stringify(parsedData));
+                            prosesDataDPT(parsedData);
+                            updateStatusUI('success', "<strong>Berhasil:</strong> File Excel/CSV DPT disimpan!");
+                            tutupModalAdminData();
+                        } catch (err) {
+                            alert("Gagal membaca file Excel/CSV!");
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            }
+        }
+
+        function bukaModalLoginAdmin() {
+            document.getElementById("input-pin-admin").value = "";
+            document.getElementById("error-pin").classList.add("hidden");
+            document.getElementById("modal-login-admin").classList.remove("hidden");
+        }
+
+        function tutupModalLoginAdmin() {
+            document.getElementById("modal-login-admin").classList.add("hidden");
+        }
+
+        function prosesLoginAdmin(e) {
+            e.preventDefault();
+            const pin = document.getElementById("input-pin-admin").value;
+            if (pin === "@2314") {
+                isAdminLoggedIn = true;
+                localStorage.setItem("rw25_admin_logged", "true");
+                tutupModalLoginAdmin();
+                checkAdminSession();
+            } else {
+                document.getElementById("error-pin").classList.remove("hidden");
+            }
+        }
+
+        function logoutAdmin() {
+            isAdminLoggedIn = false;
+            localStorage.removeItem("rw25_admin_logged");
+            checkAdminSession();
+        }
+
+        function checkAdminSession() {
+            const status = localStorage.getItem("rw25_admin_logged");
+            if (status === "true") {
+                isAdminLoggedIn = true;
+                document.getElementById("btn-login-admin").classList.add("hidden");
+                document.getElementById("badge-admin-logged").classList.remove("hidden");
+                document.getElementById("section-admin-rekap").classList.remove("hidden");
+                renderDashboardRekap();
+            } else {
+                isAdminLoggedIn = false;
+                document.getElementById("btn-login-admin").classList.remove("hidden");
+                document.getElementById("badge-admin-logged").classList.add("hidden");
+                document.getElementById("section-admin-rekap").classList.add("hidden");
+            }
+        }
+
+        function bukaModalAdminData() {
+            document.getElementById("modal-admin-dpt").classList.remove("hidden");
+        }
+
+        function tutupModalAdminData() {
+            document.getElementById("modal-admin-dpt").classList.add("hidden");
+        }
+
+        function lakukanPencarian() {
+            const blok = document.getElementById("select-blok").value;
+            const noRumah = document.getElementById("input-norumah").value.trim().toLowerCase();
+            const sectionHasil = document.getElementById("section-hasil");
+            const notFound = document.getElementById("hasil-not-found");
+            const found = document.getElementById("hasil-found");
+
+            sectionHasil.classList.remove("hidden");
+
+            if (!blok || !noRumah) {
+                notFound.classList.remove("hidden");
+                found.classList.add("hidden");
+                return;
+            }
+
+            const hasilCari = databaseDPT.find(item => 
+                item.blok.toLowerCase() === blok.toLowerCase() && item.noRumah.toLowerCase() === noRumah
+            );
+
+            if (!hasilCari) {
+                notFound.classList.remove("hidden");
+                found.classList.add("hidden");
+                selectedHouseData = null;
+            } else {
+                notFound.classList.add("hidden");
+                found.classList.remove("hidden");
+                selectedHouseData = hasilCari;
+
+                document.getElementById("display-alamat-kk").textContent = `${hasilCari.blok} No. ${hasilCari.noRumah}`;
+                document.getElementById("display-kepala-keluarga").textContent = `Kepala Keluarga: ${hasilCari.kepalaKeluarga}`;
+                document.getElementById("display-rt-rw").textContent = `${hasilCari.rt} / RW 025`;
+                document.getElementById("display-tps-info").textContent = hasilCari.tps;
+
+                renderAnggotaPemilih(hasilCari);
+            }
+        }
+
+        function renderAnggotaPemilih(house) {
+            const container = document.getElementById("list-anggota-pemilih");
+            container.innerHTML = "";
+
+            house.anggotaPemilih.forEach((pemilih) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "p-3 border-2 border-slate-200 hover:border-blue-600 rounded-lg text-left transition bg-slate-50 hover:bg-blue-50 flex justify-between items-center group cursor-pointer";
+                btn.innerHTML = `
+                    <div>
+                        <div class="text-xs font-bold text-slate-500 font-mono">${pemilih.idDPT}</div>
+                        <div class="text-sm font-extrabold text-slate-900 group-hover:text-blue-900">${pemilih.nama}</div>
+                    </div>
+                    <span class="bg-blue-100 group-hover:bg-blue-600 group-hover:text-white text-blue-800 text-xs px-2.5 py-1 rounded-md font-bold transition">Pilih & Unduh</span>
+                `;
+                btn.onclick = () => tampilkanKartuUndangan(house, pemilih);
+                container.appendChild(btn);
+            });
+
+            document.getElementById("wrapper-kartu-undangan").classList.add("hidden");
+        }
+
+        function tampilkanKartuUndangan(house, pemilih) {
+            document.getElementById("wrapper-kartu-undangan").classList.remove("hidden");
+            document.getElementById("pdf-id-dpt").textContent = pemilih.idDPT;
+            document.getElementById("pdf-nama-pemilih").textContent = pemilih.nama.toUpperCase();
+            document.getElementById("pdf-alamat").textContent = `${house.blok} No. ${house.noRumah} (${house.rt})`;
+            document.getElementById("pdf-waktu").textContent = house.waktuTPS;
+            document.getElementById("pdf-tps").textContent = house.tps;
+
+            const qrContainer = document.getElementById("qrcode");
+            qrContainer.innerHTML = "";
+            
+            const qrPayload = JSON.stringify({
+                idDPT: pemilih.idDPT,
+                nama: pemilih.nama,
+                alamat: `${house.blok} No. ${house.noRumah}`,
+                rt: house.rt,
+                rw: "RW 025"
+            });
+
+            new QRCode(qrContainer, {
+                text: qrPayload,
+                width: 100,
+                height: 100
+            });
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById("undangan-card-printable");
+            const namaPemilih = document.getElementById("pdf-nama-pemilih").textContent || "Undangan";
+            
+            const opt = {
+                margin:       0.3,
+                filename:     `Surat_Undangan_RW025_${namaPemilih.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
+</body>
+</html>
